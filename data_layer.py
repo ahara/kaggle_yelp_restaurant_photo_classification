@@ -39,10 +39,6 @@ class LBPDict(object):
     def get_business(self, photo_id):
         return self.p2b_dict.get(photo_id, -1)
 
-    def get_label_str(self, photo_id):
-        r = self.get_label(photo_id)
-        return ','.join(map(lambda x: str(int(x)), list(r)))
-
     def get_train_val_split_point(self, train_ratio=0.8):
         return int(len(self.p2b_dict.keys()) * train_ratio)
 
