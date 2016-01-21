@@ -1,10 +1,4 @@
-"""Code for reading Yelp's input data"""
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import numpy as np
-import tensorflow as tf
 
 import consts
 
@@ -40,9 +34,6 @@ class LBPDict(object):
         self.labels_dict = labels
 
     def get_label(self, photo_id):
-        #if photo_id in [148777, 457176, 250188]:
-        #    print('====== Skipping small image ======')
-        #    return None
         return self.labels_dict.get(self.p2b_dict.get(photo_id, -1), None)
 
     def get_business(self, photo_id):
@@ -65,20 +56,3 @@ class LBPDict(object):
 
     def get_all_train_photo_ids(self):
         return [i for i in self.p2b_dict.keys() if self.get_label(i) is not None]
-
-
-def read_yelp(filename_queue):
-    class YelpRecord(object):
-        pass
-
-    result = YelpRecord()
-
-    reader = tf.IdentityReader()
-    key, file_contents = reader.read(filename_queue)
-    r = tf.decode_csv(file_contents, [[''], [-1], [0], [0], [0], [0], [0], [0], [0], [0], [0]], field_delim=',')
-    img_contents = tf.read_file(r[0])
-    result.uint8image = tf.image.decode_jpeg(img_contents, channels=3)
-    result.label = tf.cast(tf.pack(r[2:]), tf.float32)
-    result.business = r[1]
-
-    return result

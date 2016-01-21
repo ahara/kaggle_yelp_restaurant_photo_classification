@@ -6,7 +6,7 @@ import os
 from skimage import io, transform
 
 import consts
-import yelp_input
+import data_layer
 
 
 logger = logging.getLogger()
@@ -53,7 +53,7 @@ def PreprocessImage(path, show_img=False):
 x = {}
 y = {}
 
-lbp = yelp_input.LBPDict()
+lbp = data_layer.LBPDict()
 atp = lbp.get_all_train_photo_ids()
 cnt = 0
 
