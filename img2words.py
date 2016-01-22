@@ -12,6 +12,9 @@ import data_layer
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
 
+# Params
+top_n = 20
+
 # Load the pre-trained model
 prefix = "Inception/Inception_BN"
 num_round = 39
@@ -46,7 +49,7 @@ def PreprocessImage(path):
 x = {}
 y = {}
 
-lbp = data_layer.LBPDict()
+lbp = data_layer.LBPDict(consts.P2B_TRAIN, consts.P2B_TEST, consts.LABELS_TRAIN)
 atp = lbp.get_all_train_photo_ids()
 cnt = 0
 
@@ -68,7 +71,7 @@ for i in atp:
     # Argsort, get prediction index from largest prob to lowest
     pred = np.argsort(prob)[::-1]
     # Get topN label
-    for j in xrange(20):
+    for j in xrange(top_n):
         k = synset[pred[j]]
         p = prob[pred[j]]
         features[k] = features.get(k, 0.0) + p
@@ -76,5 +79,5 @@ for i in atp:
     x[b] = features
 
 # Serialize objects
-cPickle.dump(x, open(os.path.join(consts.STORAGE_PATH, 'x.obj'), 'wb'))
-cPickle.dump(y, open(os.path.join(consts.STORAGE_PATH, 'y.obj'), 'wb'))
+cPickle.dump(x, open(os.path.join(consts.STORAGE_PATH, 'x_top%d.obj' % top_n), 'wb'))
+cPickle.dump(y, open(os.path.join(consts.STORAGE_PATH, 'y_top%d.obj' % top_n), 'wb'))

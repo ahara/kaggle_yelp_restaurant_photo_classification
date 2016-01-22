@@ -1,23 +1,31 @@
 import numpy as np
 
-import consts
-
 
 class LBPDict(object):
-    def __init__(self):
-        self.p2b_file = consts.P2B_TRAIN
-        self.label_file = consts.LABELS_TRAIN
-        self.p2b_dict = None
+    def __init__(self, p2b_file_train, p2b_file_test, label_file):
+        self.p2b_file_train = p2b_file_train
+        self.p2b_file_test = p2b_file_test
+        self.label_file = label_file
+        self.p2b_dict_train = None
+        self.p2b_dict_test = None
         self.labels_dict = None
         self._read_dicts()
 
     def _read_dicts(self):
-        p2b = {}
-        with open(self.p2b_file, 'rb') as f:
+        p2b_train, p2b_test = {}, {}
+        # Train images
+        with open(self.p2b_file_train, 'rb') as f:
             _ = f.next()  # Skip header
             for line in f:
                 p, b = line.split(',')
-                p2b[int(p)] = int(b)
+                p2b_train[int(p)] = int(b)
+        # Test images
+        with open(self.p2b_file_test, 'rb') as f:
+            _ = f.next()  # Skip header
+            for line in f:
+                p, b = line.split(',')
+                p2b_test[int(p)] = int(b)
+        # Train labels
         labels = {}
         with open(self.label_file, 'rb') as f:
             _ = f.next()  # Skip header
@@ -30,25 +38,21 @@ class LBPDict(object):
                 for l in l_str.split(' '):
                     l_array[int(l)] = 1
                 labels[int(b)] = l_array
-        self.p2b_dict = p2b
+        self.p2b_dict_train = p2b_train
+        self.p2b_dict_test = p2b_test
         self.labels_dict = labels
 
     def get_label(self, photo_id):
-        return self.labels_dict.get(self.p2b_dict.get(photo_id, -1), None)
+        return self.labels_dict.get(self.p2b_dict_train.get(photo_id, -1), None)
 
     def get_business(self, photo_id):
-        return self.p2b_dict.get(photo_id, -1)
-
-    def get_train_val_split_point(self, train_ratio=0.8):
-        return int(len(self.p2b_dict.keys()) * train_ratio)
-
-    def get_train_photo_ids(self):
-        return [i for i in self.p2b_dict.keys()[:self.get_train_val_split_point()]
-                if self.get_label(i) is not None]
-
-    def get_val_photo_ids(self):
-        return [i for i in self.p2b_dict.keys()[self.get_train_val_split_point():]
-                if self.get_label(i) is not None]
+        business_id = self.p2b_dict_train.get(photo_id, -1)
+        if business_id == -1:
+            business_id = self.p2b_dict_test.get(photo_id, -1)
+        return business_id
 
     def get_all_train_photo_ids(self):
-        return [i for i in self.p2b_dict.keys() if self.get_label(i) is not None]
+        return [i for i in self.p2b_dict_train.keys() if self.get_label(i) is not None]
+
+    def get_all_test_photo_ids(self):
+        return self.p2b_dict_test.keys()
