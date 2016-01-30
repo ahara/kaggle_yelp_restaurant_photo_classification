@@ -24,7 +24,7 @@ class LBPDict(object):
             _ = f.next()  # Skip header
             for line in f:
                 p, b = line.split(',')
-                p2b_test[int(p)] = int(b)
+                p2b_test[int(p)] = b
         # Train labels
         labels = {}
         with open(self.label_file, 'rb') as f:
