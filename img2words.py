@@ -3,6 +3,7 @@ import logging
 import mxnet as mx
 import numpy as np
 import os
+from collections import defaultdict
 from skimage import io, transform
 
 import consts
@@ -13,9 +14,9 @@ logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
 
 # Params
-top_n = 10
-aggregation = ''
-model_name = 'iv3'
+top_n = [5, 10, 20]
+aggregation = ['sum', 'max']
+model_name = 'ibn'  # iv3|ibn
 
 inception_bn = {'prefix': 'pretrained/InceptionBN/Inception_BN',
                 'synset': 'pretrained/InceptionBN/synset.txt',
@@ -69,21 +70,20 @@ def preprocess_image(path):
 
 
 def img2words(photo_ids, photo_dir, use_labels):
-    x, y = {}, {}
+    x, y = defaultdict(dict), {}
     cnt = 0
 
     for i in photo_ids:
         cnt += 1
         if cnt % 100 == 0:
             print photo_dir, cnt / float(len(photo_ids))
-        b = lbp.get_business(i)
+        business_ids = lbp.get_business_ids(i)
 
         if use_labels:
-            y[b] = lbp.get_label(i)
+            for b in business_ids:
+                y[b] = lbp.get_business_label(b)
 
         p = os.path.join(photo_dir, '%s.jpg' % str(i))
-
-        features = x.get(b, {})
 
         # Get preprocessed batch (single image batch)
         batch = preprocess_image(p)
@@ -91,35 +91,53 @@ def img2words(photo_ids, photo_dir, use_labels):
         prob = model.predict(batch)[0]
         # Argsort, get prediction index from largest prob to lowest
         pred = np.argsort(prob)[::-1]
-        # Get topN labels
-        for j in xrange(top_n):
-            k = synset[pred[j]]
-            p = prob[pred[j]]
-            if aggregation == 'max':
-                features[k] = max(features.get(k, 0.0), p)
-            else:
-                features[k] = features.get(k, 0.0) + p
 
-        x[b] = features
+        for b in business_ids:
+            for n in top_n:
+                for agg in aggregation:
+                    data_name = '%d_%s' % (n, agg)
+                    features = x[data_name].get(b, {})
+
+                    # Get topN labels
+                    for j in xrange(n):
+                        k = synset[pred[j]]
+                        p = prob[pred[j]]
+                        if agg == 'max':
+                            features[k] = max(features.get(k, 0.0), p)
+                        elif agg == 'sum':
+                            features[k] = features.get(k, 0.0) + p
+                        else:
+                            print 'Not supported'
+                            exit(0)
+
+                    x[data_name][b] = features
 
     return x, y
 
 
-if __name__ == '__main__':
-    x_train, y_train, x_test = {}, {}, {}
+def save_data(data_dict, data_type, n, agg, model_name):
+    file_name = '%s_top%d_%s_%s.obj' % (data_type, n, agg, model_name)
+    cPickle.dump(data_dict, open(os.path.join(consts.STORAGE_DATA_PATH, file_name), 'wb'))
 
+
+if __name__ == '__main__':
     lbp = data_layer.LBPDict(consts.P2B_TRAIN, consts.P2B_TEST, consts.LABELS_TRAIN)
     all_train_photos = lbp.get_all_train_photo_ids()
     all_test_photos = lbp.get_all_test_photo_ids()
 
     # Get words and serialize objects with features and labels
-    suffix = 'top%d_%s_%s' % (top_n, aggregation, model_name)
 
     # Train
     x_train, y_train = img2words(all_train_photos, consts.PHOTOS_TRAIN, True)
-    cPickle.dump(x_train, open(os.path.join(consts.STORAGE_DATA_PATH, 'x_train_%s.obj' % suffix), 'wb'))
-    cPickle.dump(y_train, open(os.path.join(consts.STORAGE_DATA_PATH, 'y_train_%s.obj' % suffix), 'wb'))
+    for n in top_n:
+        for agg in aggregation:
+            data_name = '%d_%s' % (n, agg)
+            save_data(x_train[data_name], 'x_train', n, agg, model_name)
+            save_data(y_train, 'y_train', n, agg, model_name)
 
     # Test
     x_test, _ = img2words(all_test_photos, consts.PHOTOS_TEST, False)
-    cPickle.dump(x_test, open(os.path.join(consts.STORAGE_DATA_PATH, 'x_test_%s.obj' % suffix), 'wb'))
+    for n in top_n:
+        for agg in aggregation:
+            data_name = '%d_%s' % (n, agg)
+            save_data(x_test[data_name], 'x_test', n, agg, model_name)

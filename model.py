@@ -39,10 +39,14 @@ test_preds = None
 ym = None
 idt = None
 
-use_test = False
+use_test = True
 print_params = False
 
-suffixes = ['top20', 'top10', 'top10_max', 'top10__iv3']
+suffixes = ['top20_max_ibn', 'top10_max_ibn', 'top5_max_ibn',
+            'top20_sum_ibn', 'top10_sum_ibn', 'top5_sum_ibn',
+            'top20_max_iv3', 'top10_max_iv3', 'top5_max_iv3',
+            'top20_sum_iv3', 'top10_sum_iv3', 'top5_sum_iv3']
+suffixes = ['top10_max_ibn', 'top20_sum_ibn', 'top10_sum_ibn', 'top10_sum_iv3']
 
 for suffix in suffixes:
     # Load data
@@ -95,12 +99,18 @@ scores = map(lambda j: f1_score(ym, np.array(predicted >= j, dtype='l'), average
 print 'Best score', max(scores)
 
 # Meta-learning
-meta = RandomForestClassifier(n_estimators=230, bootstrap=False, min_samples_leaf=2, random_state=0)  # 0.8138
+meta = RandomForestClassifier(n_estimators=300, bootstrap=True, min_samples_leaf=1, random_state=0)  # 0.8127  # 0.8138 / 230 F 2 0
 p = cross_val_predict(meta, train_preds, ym, 5, n_jobs=5)
 print 'Meta', f1_score(ym, p, average='samples')
+#meta = RandomForestClassifier(n_estimators=300, bootstrap=True, min_samples_leaf=1, random_state=0, max_features=200)
+#print 'Meta', f1_score(ym, cross_val_predict(meta, train_preds, ym, 5, n_jobs=5), average='samples')
+meta = RandomForestClassifier(n_estimators=350, bootstrap=True, min_samples_leaf=2, max_features=210,
+                              random_state=0)
+print 'Meta', f1_score(ym, cross_val_predict(meta, train_preds, ym, 5, n_jobs=5), average='samples')
 if use_test:
     meta.fit(train_preds, ym)
     pt = meta.predict(test_preds)
+    utils.save_predictions(idt, pt)
 
 #ap = np.concatenate(np.array(np.split(all_preds, 24, axis=1))[np.array([i for i in range(24) if i not in [16, 17, 20, 21, 22, 23]]),:,:], axis=1)
 #meta = RandomForestClassifier(n_estimators=230, bootstrap=False, min_samples_leaf=2, random_state=0)  # 0.8107

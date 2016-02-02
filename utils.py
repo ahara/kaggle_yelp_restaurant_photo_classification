@@ -1,4 +1,5 @@
 import cPickle
+import csv
 import numpy as np
 import os
 from sklearn.cross_validation import StratifiedKFold, KFold
@@ -46,3 +47,13 @@ def params_to_str(params):
     Converts values in dictionary to strings.
     """
     return dict(map(lambda x: (x[0], str(x[1])), params.items()))
+
+
+def save_predictions(businesses, predictions):
+    with open(consts.SUBMISSION_PATH, 'wb') as f:
+        writer = csv.writer(f, delimiter=',')
+        writer.writerow(['business_id', 'labels'])
+        for i in xrange(len(businesses)):
+            label_str = ' '.join(map(str, np.nonzero(predictions[i, :])[0]))
+            businesses_id = businesses[i].replace('\n', '')
+            writer.writerow([businesses_id, label_str])
