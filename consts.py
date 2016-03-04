@@ -13,8 +13,8 @@ PHOTOS_TEST = join(DATA_PATH, 'test_photos')
 
 # Storage
 STORAGE_PATH = '/home/adam/Projects/Yelp/storage'
-#STORAGE_DATA_PATH = join(STORAGE_PATH, 'data')
-STORAGE_DATA_PATH = join(STORAGE_PATH, 'models')
+STORAGE_DATA_PATH = join(STORAGE_PATH, 'data/iter2_all_photos')
+#STORAGE_DATA_PATH = join(STORAGE_PATH, 'models')
 STORAGE_MODELS_PATH = join(STORAGE_PATH, 'models')
 
 # Output
