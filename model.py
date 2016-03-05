@@ -41,7 +41,7 @@ test_preds = None
 ym = None
 idt = None
 
-use_test = True
+use_test = False
 print_params = False
 
 suffixes = ['top20_max_ibn', 'top10_max_ibn', 'top5_max_ibn',
@@ -49,7 +49,7 @@ suffixes = ['top20_max_ibn', 'top10_max_ibn', 'top5_max_ibn',
             'top20_max_iv3', 'top10_max_iv3', 'top5_max_iv3',
             'top20_sum_iv3', 'top10_sum_iv3', 'top5_sum_iv3']
 suffixes = ['top10_max_ibn', 'top20_sum_ibn', 'top10_sum_ibn', 'top10_sum_iv3',
-            'weights_max_ibn', 'weights_sum_ibn', 'weights_mean_ibn']
+            'weights_max_ibn', 'weights_sum_ibn']
 
 for suffix in suffixes:
     # Load data
