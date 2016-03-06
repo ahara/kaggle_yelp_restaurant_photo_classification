@@ -111,8 +111,8 @@ print 'Best score', max(scores)
 # Meta-learning
 meta = RandomForestClassifier(n_estimators=500, bootstrap=True, min_samples_leaf=2, max_features=300,
                               random_state=0)  # 0.8288 500 T 2 300
-print 'Meta', f1_score(ym, cross_val_predict(meta, train_preds, ym, 5, n_jobs=5), average='samples')
+print 'Meta', f1_score(ym, cross_val_predict(meta, train_preds[:, :324], ym, 5, n_jobs=5), average='samples')
 if use_test:
-    meta.fit(train_preds, ym)
-    pt = meta.predict(test_preds)
+    meta.fit(train_preds[:, :324], ym)
+    pt = meta.predict(test_preds[:, :324])
     utils.save_predictions(idt, pt)
