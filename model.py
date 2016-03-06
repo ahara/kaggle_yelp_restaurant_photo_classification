@@ -41,7 +41,7 @@ test_preds = None
 ym = None
 idt = None
 
-use_test = False
+use_test = True
 print_params = False
 
 suffixes = ['top20_max_ibn', 'top10_max_ibn', 'top5_max_ibn',
