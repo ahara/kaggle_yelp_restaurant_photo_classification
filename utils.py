@@ -2,22 +2,38 @@ import cPickle
 import csv
 import numpy as np
 import os
-from sklearn.cross_validation import StratifiedKFold, KFold
+from joblib import Parallel, delayed
+from sklearn.cross_validation import KFold
 
 import consts
 
 
-def cross_val_proba(clf, X, y, cv, random_state=0):
+def train_and_predict(clf, x, y, t):
+    clf.fit(x, y)
+    return clf.predict_proba(t)
+
+
+def cross_val_proba(clf, X, y, cv, random_state=0, n_jobs=5):
     """
     Simplified equivalent of cross_val_predict from sklearn
     but instead labels it predicts probabilities
     """
-    folds = KFold(y.shape[0], n_folds=cv, shuffle=True, random_state=random_state)
+    folds = KFold(y.shape[0], n_folds=cv, shuffle=True, random_state=random_state % 10**6)
+
+    if n_jobs > 1:
+        results = Parallel(n_jobs=n_jobs)(delayed(train_and_predict)
+                                          (clf, X[train_index], y[train_index], X[test_index])
+                                          for train_index, test_index in folds)
+    else:
+        results = [train_and_predict(clf, X[train_index], y[train_index], X[test_index])
+                   for train_index, test_index in folds]
+
     preds = np.zeros(y.shape, dtype='float')
-    for train_index, test_index in folds:
-        clf.fit(X[train_index], y[train_index])
-        p = clf.predict_proba(X[test_index])
-        preds[test_index, :] = np.transpose(np.array(p)[:,:,1]) if type(p) == type([]) else p
+    for i, indices in enumerate(folds):
+        _, test_index = indices
+        p = results[i]
+        preds[test_index] = np.transpose(np.array(p)[:, :, 1]) if type(p) == type([]) else p
+        #preds[test_index, :] = np.transpose(np.array(p)[:, :, 1]) if type(p) == type([]) else p
     return preds
 
 

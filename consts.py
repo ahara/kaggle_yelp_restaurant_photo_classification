@@ -16,6 +16,7 @@ STORAGE_PATH = '/home/adam/Projects/Yelp/storage'
 STORAGE_DATA_PATH = join(STORAGE_PATH, 'data/iter2_all_photos')
 #STORAGE_DATA_PATH = join(STORAGE_PATH, 'models')
 STORAGE_MODELS_PATH = join(STORAGE_PATH, 'models')
+STORAGE_PARTIAL_PATH = join(STORAGE_PATH, 'partial')
 
 # Output
 OUTPUT_PATH = '/home/adam/Projects/Yelp/output'

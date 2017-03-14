@@ -1,92 +1,91 @@
 import cPickle
 import numpy as np
 import os
-import tensorflow as tf
-from sklearn.cross_validation import KFold
+from sklearn.cross_validation import cross_val_predict
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import f1_score
+from sklearn.multiclass import OneVsRestClassifier
+from sklearn.svm import SVC
 
 import consts
+import utils
 
 
-def soft_f1_loss(preds, labels):
-    tp = tf.reduce_sum(tf.cast(preds * labels, tf.float32))
-    fp = tf.reduce_sum(tf.cast(tf.maximum(preds - labels, 0), tf.float32))
-    fn = tf.reduce_sum(tf.cast(tf.maximum(labels - preds, 0), tf.float32))
-    precision = tp / (tp + fp)
-    recall = tp / (tp + fn)
-    f1_op = 2. * (precision * recall) / tf.maximum(precision + recall, 1.)
-    return 1 - f1_op
+use_test = False
 
 # Load data
-for suffix in ['mean_ibn']:
-    x = cPickle.load(open(os.path.join(consts.STORAGE_DATA_PATH, 'x_train_weights_%s.obj' % suffix), 'rb'))
-    y = cPickle.load(open(os.path.join(consts.STORAGE_DATA_PATH, 'y_train_weights_%s.obj' % suffix), 'rb'))
-    x_test = cPickle.load(open(os.path.join(consts.STORAGE_DATA_PATH, 'x_test_weights_%s.obj' % suffix), 'rb'))
-    print len(x_test)
+suffix = 'instances_ibn'
+x = cPickle.load(open(os.path.join(consts.STORAGE_DATA_PATH, 'x_train_weights_%s.obj' % suffix), 'rb'))
+y = cPickle.load(open(os.path.join(consts.STORAGE_DATA_PATH, 'y_train_weights_%s.obj' % suffix), 'rb'))
+x_test = cPickle.load(open(os.path.join(consts.STORAGE_DATA_PATH, 'x_test_weights_%s.obj' % suffix), 'rb')) if use_test else None
 
-    # Extract features and labels from dictionaries in the same order
-    xm, ym = [], []
+# Extract features and labels from dictionaries in the same order
+xm, ym, yk, yorig = [], [], [], []
 
-    for k in y.keys():
-        xm.append(x[k])
+for k in y.keys():
+    for item in x[k]:
+        xm.append(item)
         ym.append(y[k])
+        yk.append(k)
+    yorig.append(y[k])
 
-    xm = np.array(xm)
-    ym = np.array(ym)
-    from sklearn.ensemble import RandomForestClassifier
-    from sklearn.cross_validation import cross_val_predict
-    from sklearn.svm import SVC, LinearSVC
-    from sklearn.multiclass import OneVsRestClassifier, OneVsOneClassifier
-    from sklearn.preprocessing import StandardScaler
-    print 'Standardization'
-    pp = StandardScaler()
-    xm = pp.fit_transform(xm)
-    #clf = RandomForestClassifier(n_estimators=600, bootstrap=False, min_samples_leaf=3, random_state=0, n_jobs=4)
-    clf = OneVsRestClassifier(SVC(C=150., kernel='rbf', random_state=0))
-    #clf = OneVsOneClassifier(LinearSVC(random_state=0))
-    p = cross_val_predict(clf, xm, ym, 5, n_jobs=5)
-    print f1_score(ym, p, average='samples')
-    exit(0)
+xm = np.array(xm)
+ym = np.array(ym)
 
-    folds = KFold(ym.shape[0], n_folds=5, shuffle=True, random_state=0)
-    preds = np.zeros(ym.shape, dtype='float')
-    for train_index, test_index in folds:
-        xtr, ytr = xm[train_index], ym[train_index]
+x = None
 
-        tf_x = tf.placeholder(tf.float32, [None, 1024])
-        # Layer 1
-        W_1 = tf.Variable(tf.zeros([1024, 1000]))
-        b_1 = tf.Variable(tf.zeros([1000]))
-        o_1 = tf.nn.relu_layer(tf_x, W_1, b_1)
-        # Layer 2
-        W = tf.Variable(tf.zeros([1000, 9]))
-        b = tf.Variable(tf.zeros([9]))
-        tf_y = tf.nn.sigmoid(tf.nn.xw_plus_b(o_1, W, b))
-        tf_y_ = tf.placeholder(tf.float32, [None, 9])
-        #cross_entropy = -tf.reduce_sum(tf_y_*tf.log(tf_y))
-        train_step = tf.train.GradientDescentOptimizer(0.01).minimize(soft_f1_loss(tf_y, tf_y_))
-        #train_step = tf.train.GradientDescentOptimizer(0.2).minimize(cross_entropy)
-
-        init = tf.initialize_all_variables()
-        sess = tf.Session()
-        sess.run(init)
-
-        for i in range(1000):
-            print 'Epoch', i
-            rti = np.random.permutation(train_index)
-            bsize = 5
-            for j in xrange(len(rti / bsize)):
-                batch_range = rti[(j * bsize):((j + 1) * bsize)]
-                batch_xs, batch_ys = xm[batch_range, :], ym[batch_range, :]
-                sess.run(train_step, feed_dict={tf_x: batch_xs, tf_y_: batch_ys})
-
-        preds[test_index, :] = sess.run(tf_y, feed_dict={tf_x: xm[test_index, :]})
-
-        tmp = soft_f1_loss(tf_y, tf_y_)
-        print(sess.run(tmp, feed_dict={tf_x: xm, tf_y_: ym}))
-
-    print 'Meta', f1_score(ym, np.array(preds > 0.5, dtype=int), average='samples')
+clf = RandomForestClassifier(n_estimators=200, bootstrap=False, random_state=0, n_jobs=7)
+#clf = OneVsRestClassifier(LogisticRegression(C=1, penalty='l1', fit_intercept=True, random_state=23), n_jobs=1)
+p = utils.cross_val_proba(clf, xm, ym, 5, 0, n_jobs=1)
+print f1_score(ym, np.array(p >= 0.5, dtype='l'), average='samples')
 
 
+idt, xt = [], [],
+if use_test:
+    for k, v in x_test.items():
+        for item in v:
+            idt.append(k)
+            xt.append(item)
+    xt = np.array(xt)
+    clf.fit(xm, ym)
+    pt = clf.predict_proba(xt)
+    pt = np.transpose(np.array(pt)[:, :, 1])
 
+key_old = None
+porig = []
+b = 0
+for i, key in enumerate(yk):
+    if (key_old != key and key_old is not None) or i == len(yk) - 1:
+        porig.append(np.hstack((np.mean(p[b:i, :], axis=0), np.amax(p[b:i, :], axis=0), np.sum(p[b:i, :], axis=0),
+                                np.log(np.sum(xm[b:i, :], axis=0) + 1))))
+        b = i
+    key_old = key
 
+ym2 = np.array(yorig)
+xm2 = np.array(porig)
+clf = OneVsRestClassifier(SVC(C=.005, kernel='linear', random_state=4, probability=True), n_jobs=9)
+print 'Train SVC - CV'
+p2 = utils.cross_val_proba(clf, xm2, ym2, 5, 0, n_jobs=1)
+print f1_score(ym2, np.array(p2 >= 0.5, dtype='l'), average='samples')
+
+key_old = None
+pt_orig, idt_orig = [], []
+b = 0
+for i, key in enumerate(idt):
+    if (key_old != key and key_old is not None) or i == len(idt) - 1:
+        #pt_orig.append(np.hstack((np.mean(pt[b:i, :], axis=0), np.amax(pt[b:i, :], axis=0), np.sum(pt[b:i, :], axis=0),
+        #                          np.log(np.sum(xt[b:i, :], axis=0) + 1))))
+        pt_orig.append(np.hstack(np.sum(pt[b:i, :], axis=0),
+                                  np.log(np.sum(xt[b:i, :], axis=0) + 1)))
+        idt_orig.append(key_old)
+        b = i
+    key_old = key
+
+idt_orig = np.array(idt_orig)
+xt2 = np.array(pt_orig)
+print 'Train SVC'
+clf.fit(xm2, ym2)
+pt2 = clf.predict_proba(xt2)
+#pt2 = np.transpose(np.array(pt2)[:, :, 1])
+utils.save_predictions(idt_orig, np.array(pt2 >= 0.5, dtype='l'))

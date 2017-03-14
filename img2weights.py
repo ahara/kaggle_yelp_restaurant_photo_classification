@@ -14,23 +14,27 @@ logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
 
 # Params
-aggregation = ['sum', 'max', 'mean']
-model_name = 'ibn'  # iv3|ibn
+aggregation = ['sum', 'max', 'mean', 'instances']
+#aggregation = ['sum', 'mean']
+model_name = 'iv3'  # iv3|ibn
 
 inception_bn = {'prefix': 'pretrained/InceptionBN/Inception_BN',
                 'mean_img': 'pretrained/InceptionBN/mean_224.nd',
                 'size': 224,
-                'round': 39}
+                'round': 39,
+                'num_weights': 1024}
 inception_v3 = {'prefix': 'pretrained/Inception-v3/Inception-7',
                 'mean_img': None,
                 'size': 299,
-                'round': 1}
+                'round': 1,
+                'num_weights': 2048}
 model_conf = {'ibn': inception_bn, 'iv3': inception_v3}
 
 # Load the pre-trained model
 prefix = model_conf[model_name]['prefix']
 img_size = model_conf[model_name]['size']
 num_round = model_conf[model_name]['round']
+num_weights = model_conf[model_name]['num_weights']
 model = mx.model.FeedForward.load(prefix, num_round, ctx=mx.gpu(), numpy_batch_size=1)
 internals = model.symbol.get_internals()
 fea_symbol = internals["global_pool_output"]
@@ -89,7 +93,7 @@ def img2weights(photo_ids, photo_dir, use_labels):
         batch = preprocess_image(p)
         # Predict feature
         global_pooling_feature = feature_extractor.predict(batch)
-        feature_vector = global_pooling_feature.reshape((1024,))
+        feature_vector = global_pooling_feature.reshape((num_weights,))
 
         for b in business_ids:
             photo_counter[b] = photo_counter.get(b, 0) + 1.0  # Count how many photos each business has to get mean weight value
@@ -98,12 +102,14 @@ def img2weights(photo_ids, photo_dir, use_labels):
                 features = x[data_name].get(b, None)
 
                 if features is None:
-                    features = feature_vector
+                    features = [feature_vector] if agg == 'instances' else feature_vector.copy()
                 else:
                     if agg == 'max':
                         features = np.maximum(features, feature_vector)
                     elif agg == 'sum' or agg == 'mean':
                         features += feature_vector
+                    elif agg == 'instances':
+                        features.append(feature_vector)
                     else:
                         print 'Not supported'
                         exit(0)
